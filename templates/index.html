@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>닉네임 가위바위보</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        body { text-align: center; font-family: sans-serif; padding-top: 50px; background-color: #f0f2f5; }
+        .game-container { background: white; display: inline-block; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .result-box { margin: 20px 0; padding: 15px; background: #e9ecef; border-radius: 10px; min-height: 50px; }
+        button { font-size: 18px; padding: 10px 25px; cursor: pointer; margin: 5px; border: none; border-radius: 5px; background: #007bff; color: white; transition: 0.2s; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 id="user-display">접속 중...</h1>
+        <div class="result-box">
+            <div id="status">가위, 바위, 보 중 하나를 선택하세요!</div>
+        </div>
+        <button onclick="sendChoice('가위')">✌️ 가위</button>
+        <button onclick="sendChoice('바위')">✊ 바위</button>
+        <button onclick="sendChoice('보')">🖐️ 보</button>
+    </div>
+
+    <script>
+        const socket = io();
+        let myName = "";
+
+        // 접속하자마자 이름을 물어봅니다.
+        socket.on('connect', () => {
+            myName = prompt("사용하실 닉네임을 입력해주세요:");
+            if(!myName) myName = "익명" + Math.floor(Math.random() * 1000);
+            document.getElementById('user-display').innerText = `플레이어: ${myName}`;
+            socket.emit('join', {name: myName});
+        });
+
+        function sendChoice(pick) {
+            socket.emit('choice', {pick: pick});
+            document.getElementById('status').innerText = "상대방의 선택을 기다리는 중...";
+        }
+
+        socket.on('update', (data) => {
+            document.getElementById('status').innerText = data.msg;
+        });
+
+        socket.on('game_result', (data) => {
+            document.getElementById('status').innerHTML = 
+                `<h3 style="color: #d9534f;">${data.winner}</h3>
+                ${data.p1_name}(${data.p1_pick}) VS ${data.p2_name}(${data.p2_pick})`;
+        });
+    </script>
+</body>
+</html>
