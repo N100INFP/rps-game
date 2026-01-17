@@ -57,3 +57,9 @@ if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 10000))
     socketio.run(app, host='0.0.0.0', port=port)
+# 기존 choice 핸들러 아래에 추가하세요
+@socketio.on('message')
+def handle_message(data):
+    # 전송한 사람의 닉네임을 찾고 메시지와 함께 브로드캐스트
+    name = players.get(request.sid, {}).get('name', '익명')
+    emit('new_message', {'name': name, 'msg': data['msg']}, broadcast=True)
