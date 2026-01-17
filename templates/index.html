@@ -2,52 +2,100 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>닉네임 가위바위보</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 가위바위보 아레나</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <style>
-        body { text-align: center; font-family: sans-serif; padding-top: 50px; background-color: #f0f2f5; }
-        .game-container { background: white; display: inline-block; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .result-box { margin: 20px 0; padding: 15px; background: #e9ecef; border-radius: 10px; min-height: 50px; }
-        button { font-size: 18px; padding: 10px 25px; cursor: pointer; margin: 5px; border: none; border-radius: 5px; background: #007bff; color: white; transition: 0.2s; }
-        button:hover { background: #0056b3; }
+        :root { --primary: #4a90e2; --bg: #f0f2f5; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* 반응형 컨테이너: PC에선 가로, 모바일에선 세로 */
+        .main-container { 
+            display: flex; flex-wrap: wrap; gap: 20px; width: 100%; max-width: 1000px; margin-top: 20px;
+        }
+        
+        .card { background: white; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px; flex: 1; min-width: 300px; }
+        
+        /* 게임 섹션 */
+        .game-section { text-align: center; }
+        .status-box { height: 100px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 10px; margin: 20px 0; font-weight: bold; font-size: 1.2rem; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; }
+        button { padding: 15px; border: none; border-radius: 10px; background: var(--primary); color: white; cursor: pointer; font-size: 1.1rem; flex: 1; transition: 0.2s; }
+        button:active { transform: scale(0.95); }
+
+        /* 채팅 섹션 */
+        .chat-section { display: flex; flex-direction: column; height: 400px; }
+        #chat-window { flex: 1; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 5px; text-align: left; background: #fafafa; }
+        .chat-input-group { display: flex; gap: 5px; }
+        input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        
+        .loading { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* 모바일 최적화 (화면 폭이 600px 이하일 때) */
+        @media (max-width: 600px) {
+            .main-container { flex-direction: column; }
+            .card { min-width: 100%; padding: 15px; }
+            .chat-section { height: 300px; }
+        }
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <h1 id="user-display">접속 중...</h1>
-        <div class="result-box">
-            <div id="status">가위, 바위, 보 중 하나를 선택하세요!</div>
+    <h1>🎮 가위바위보 아레나</h1>
+    <div class="main-container">
+        <div class="card game-section">
+            <h2 id="user-display">접속 중...</h2>
+            <div class="status-box" id="status">가위, 바위, 보 중 하나를 선택하세요!</div>
+            <div class="btn-group">
+                <button onclick="sendChoice('가위')">✌️ 가위</button>
+                <button onclick="sendChoice('바위')">✊ 바위</button>
+                <button onclick="sendChoice('보')">🖐️ 보</button>
+            </div>
         </div>
-        <button onclick="sendChoice('가위')">✌️ 가위</button>
-        <button onclick="sendChoice('바위')">✊ 바위</button>
-        <button onclick="sendChoice('보')">🖐️ 보</button>
+
+        <div class="card chat-section">
+            <h3>💬 실시간 채팅</h3>
+            <div id="chat-window"></div>
+            <div class="chat-input-group">
+                <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." onkeypress="if(event.keyCode==13) sendMessage()">
+                <button onclick="sendMessage()" style="flex: 0;">전송</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        const socket = io();
+        const socket = io(); // Render에서는 폴링 없이 바로 사용 가능
         let myName = "";
 
-        // 접속하자마자 이름을 물어봅니다.
         socket.on('connect', () => {
-            myName = prompt("사용하실 닉네임을 입력해주세요:");
-            if(!myName) myName = "익명" + Math.floor(Math.random() * 1000);
+            myName = prompt("사용할 닉네임을 입력해주세요:");
+            if(!myName) myName = "익명_" + Math.random().toString(36).substr(2, 5);
             document.getElementById('user-display').innerText = `플레이어: ${myName}`;
             socket.emit('join', {name: myName});
         });
 
         function sendChoice(pick) {
             socket.emit('choice', {pick: pick});
-            document.getElementById('status').innerText = "상대방의 선택을 기다리는 중...";
+            document.getElementById('status').innerHTML = '<span class="loading">상대방의 선택을 기다리는 중...</span>';
         }
 
-        socket.on('update', (data) => {
-            document.getElementById('status').innerText = data.msg;
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            if(input.value.trim()) {
+                socket.emit('message', {msg: input.value});
+                input.value = "";
+            }
+        }
+
+        socket.on('new_message', (data) => {
+            const win = document.getElementById('chat-window');
+            win.innerHTML += `<div><strong>${data.name}:</strong> ${data.msg}</div>`;
+            win.scrollTop = win.scrollHeight;
         });
 
         socket.on('game_result', (data) => {
             document.getElementById('status').innerHTML = 
-                `<h3 style="color: #d9534f;">${data.winner}</h3>
-                ${data.p1_name}(${data.p1_pick}) VS ${data.p2_name}(${data.p2_pick})`;
+                `결과: ${data.winner}<br><small>${data.p1_name}(${data.p1_pick}) vs ${data.p2_name}(${data.p2_pick})</small>`;
         });
     </script>
 </body>
