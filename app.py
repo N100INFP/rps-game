@@ -1,3 +1,22 @@
+# 1. 반드시 최상단(다른 모든 import보다 위)에 위치해야 합니다.
+import eventlet
+eventlet.monkey_patch()
+
+import os
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, emit
+
+app = Flask(__name__)
+# 2. 보안 및 컨텍스트 설정을 위해 아래 옵션을 추가합니다.
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# ... 나머지 게임 로직 (players 등)은 그대로 유지 ...
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    # 3. Render 환경에서는 socketio.run을 직접 호출합니다.
+    socketio.run(app, host='0.0.0.0', port=port)
+
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 
@@ -63,3 +82,4 @@ def handle_message(data):
     # 전송한 사람의 닉네임을 찾고 메시지와 함께 브로드캐스트
     name = players.get(request.sid, {}).get('name', '익명')
     emit('new_message', {'name': name, 'msg': data['msg']}, broadcast=True)
+
