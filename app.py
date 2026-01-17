@@ -53,4 +53,7 @@ def handle_choice(data):
         emit('update', {'msg': "상대방의 선택을 기다리고 있습니다..."}, broadcast=True)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    # 포트를 지정하지 않거나 Render가 주는 환경변수를 사용해야 합니다.
+    import os
+    port = int(os.environ.get('PORT', 10000))
+    socketio.run(app, host='0.0.0.0', port=port)
